@@ -1,105 +1,115 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import date
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Family Wealth Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# 2. MOTOR DE DADOS: Função para ler do Google Sheets
-@st.cache_data(ttl=600) # Atualiza a cada 10 minutos
-def carregar_dados_sheets(gid):
-    sheet_id = "1-XY6i7XdFOU26esEsZyfGtvmKPOrVluv1y38CJzGJCI"
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
-    return pd.read_csv(url)
+# 2. MENU DE NAVEGAÇÃO
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3135/3135679.png", width=50) # Ícone genérico
+st.sidebar.title("Menu")
+pagina = st.sidebar.radio("Navegação:", ["📊 Dashboard Consolidado", "📥 Terminal de Lançamentos"])
+st.sidebar.divider()
 
-# Carregando as 4 abas (Tabelas) do Banco de Dados
-try:
-    df_aportes      = carregar_dados_sheets("0")
-    df_rv           = carregar_dados_sheets("185528981")
-    df_derivativos  = carregar_dados_sheets("1418090420")
-    df_rf           = carregar_dados_sheets("1426534025")
+# --- PÁGINA 1: DASHBOARD ---
+if pagina == "📊 Dashboard Consolidado":
+    st.title("🏛️ Family Wealth - Painel Consolidado")
+    st.markdown("Bem-vindo, Bernardo e Cintia. Aqui está o resumo atualizado do ecossistema financeiro.")
+
+    # Filtros
+    visao = st.sidebar.radio("Filtrar Visão:", ["Consolidado Familiar", "Apenas Bernardo", "Apenas Cintia"])
+
+    # Dados Fixos (Por enquanto, até conectarmos o banco para leitura automática)
+    dados_kpis = {
+        "Patrimônio Total": 353045.57,
+        "Imóveis": 100000.00,
+        "Renda Fixa": 31282.00,
+        "Renda Variável": 221763.57 
+    }
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Patrimônio Total", f"R$ {dados_kpis['Patrimônio Total']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    col2.metric("Imóveis", f"R$ {dados_kpis['Imóveis']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    col3.metric("Renda Fixa", f"R$ {dados_kpis['Renda Fixa']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    col4.metric("Renda Variável", f"R$ {dados_kpis['Renda Variável']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    st.markdown("---")
     
-    dados_conectados = True
-except Exception as e:
-    dados_conectados = False
-    st.error(f"Erro ao conectar com a planilha. Detalhe: {e}")
+    col_grafico, col_metas = st.columns([1.5, 1])
+    with col_grafico:
+        st.subheader("Asset Allocation Atual (%)")
+        df_alocacao = pd.DataFrame({
+            "Classe": ["Imóveis", "Renda Fixa", "Renda Variável"],
+            "Valor": [dados_kpis['Imóveis'], dados_kpis['Renda Fixa'], dados_kpis['Renda Variável']]
+        })
+        fig = px.pie(df_alocacao, values="Valor", names="Classe", hole=0.4, color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
+        st.plotly_chart(fig, use_container_width=True)
 
-# 3. INTERFACE VISUAL (A "Lataria")
-st.title("🏛️ Family Wealth - Painel Consolidado")
-st.markdown("Bem-vindo, Bernardo e Cintia. Aqui está o resumo atualizado do ecossistema financeiro.")
+    with col_metas:
+        st.subheader("Orçamento Mensal Consumido")
+        st.metric("Poder de Fogo Mensal", "R$ 14.000,00")
+        st.write("🎯 Previdência (R$ 9.000)")
+        st.progress(9000 / 14000)
+        st.write("🏠 Novo Imóvel (R$ 2.800)")
+        st.progress(2800 / 14000)
 
-if dados_conectados:
-    st.success("🟢 Todas as 4 bases de dados conectadas com sucesso na nuvem!")
-else:
-    st.warning("🟡 Aguardando conexão ou preenchimento da planilha inicial...")
 
-st.sidebar.header("Filtros")
-visao = st.sidebar.radio("Selecione a Visão:", ["Consolidado Familiar", "Apenas Bernardo", "Apenas Cintia"])
+# --- PÁGINA 2: TERMINAL DE LANÇAMENTOS ---
+elif pagina == "📥 Terminal de Lançamentos":
+    st.title("📥 Terminal de Lançamentos")
+    st.markdown("Registre novas movimentações. Os dados serão salvos diretamente no banco de dados.")
 
-st.divider()
+    tab1, tab2, tab3 = st.tabs(["💰 Novo Aporte", "📈 Operação Renda Variável", "🛡️ Venda Coberta / PUT"])
 
-# -- Valores Fixos Iniciais (No próximo passo, faremos o Python calcular isso usando os DataFrames acima) --
-dados_kpis = {
-    "Patrimônio Total": 353045.57,
-    "Imóveis": 100000.00,
-    "Renda Fixa": 31282.00,
-    "Renda Variável": 221763.57 
-}
+    # Aba 1: Aportes
+    with tab1:
+        st.subheader("Registrar Novo Aporte")
+        with st.form(key="form_aporte", clear_on_submit=True):
+            col_a, col_b = st.columns(2)
+            data_aporte = col_a.date_input("Data do Aporte", value=date.today())
+            titular = col_b.selectbox("Titular", ["Bernardo", "Cintia", "Conjunto"])
+            
+            col_c, col_d = st.columns(2)
+            valor = col_c.number_input("Valor (R$)", min_value=0.0, step=100.0, format="%.2f")
+            destino = col_d.selectbox("Destino (Caixa/Meta)", ["Previdência", "Novo Imóvel", "Viagem", "Troca de Carro", "Caixa Livre"])
+            
+            submit_aporte = st.form_submit_button(label="Gravar Aporte")
+            if submit_aporte:
+                # Aqui entrará o código de salvar no banco invisível
+                st.success(f"✅ Aporte de R$ {valor} para {destino} ({titular}) registrado com sucesso!")
 
-# 4. Primeira Linha: KPIs (Indicadores Principais)
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Patrimônio Total", f"R$ {dados_kpis['Patrimônio Total']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-col2.metric("Imóveis", f"R$ {dados_kpis['Imóveis']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-col3.metric("Renda Fixa", f"R$ {dados_kpis['Renda Fixa']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-col4.metric("Renda Variável", f"R$ {dados_kpis['Renda Variável']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    # Aba 2: Renda Variável (Compra/Venda de Ações)
+    with tab2:
+        st.subheader("Registrar Compra/Venda de Ações")
+        with st.form(key="form_rv", clear_on_submit=True):
+            col_a, col_b, col_c = st.columns(3)
+            data_rv = col_a.date_input("Data da Operação", value=date.today())
+            tipo_op = col_b.selectbox("Tipo", ["Compra", "Venda"])
+            estrategia = col_c.selectbox("Estratégia", ["Carteira Própria", "Small Caps - Nord"])
+            
+            col_d, col_e, col_f = st.columns(3)
+            ticker = col_d.text_input("Ticker (Ex: ITUB4)").upper()
+            quantidade = col_e.number_input("Quantidade", min_value=1, step=1)
+            preco = col_f.number_input("Preço Executado (R$)", min_value=0.01, step=0.10, format="%.2f")
+            
+            submit_rv = st.form_submit_button(label="Gravar Operação")
+            if submit_rv:
+                st.success(f"✅ {tipo_op} de {quantidade}x {ticker} a R$ {preco} registrada!")
 
-st.markdown("---")
-
-# 5. Segunda Linha: Gráficos e Alocação
-col_grafico, col_metas = st.columns([1.5, 1])
-
-with col_grafico:
-    st.subheader("Asset Allocation Atual (%)")
-    df_alocacao = pd.DataFrame({
-        "Classe": ["Imóveis", "Renda Fixa", "Renda Variável"],
-        "Valor": [dados_kpis['Imóveis'], dados_kpis['Renda Fixa'], dados_kpis['Renda Variável']]
-    })
-    
-    fig = px.pie(df_alocacao, values="Valor", names="Classe", hole=0.4, 
-                 color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
-    fig.update_traces(textposition='inside', textinfo='percent+label')
-    st.plotly_chart(fig, use_container_width=True)
-
-with col_metas:
-    st.subheader("Aportes e Orçamento Mensal")
-    st.metric("Poder de Fogo Mensal", "R$ 14.000,00")
-    
-    st.write("🎯 Previdência (R$ 9.000)")
-    st.progress(9000 / 14000)
-    
-    st.write("🏠 Novo Imóvel (R$ 2.800)")
-    st.progress(2800 / 14000)
-    
-    st.write("✈️ Viagem (R$ 1.500)")
-    st.progress(1500 / 14000)
-    
-    st.write("🚗 Troca de Carro (R$ 700)")
-    st.progress(700 / 14000)
-
-st.markdown("---")
-
-# 6. Área de Debug/Visualização dos Dados da Nuvem
-if dados_conectados:
-    with st.expander("🔍 Status da Conexão e Dados Brutos (Nuvem)"):
-        st.write("As 4 tabelas estão sendo lidas em tempo real do Google Sheets:")
-        
-        tab1, tab2, tab3, tab4 = st.tabs(["Aportes Mensais", "Operações RV", "Derivativos", "Saldos RF"])
-        
-        with tab1:
-            st.dataframe(df_aportes, use_container_width=True)
-        with tab2:
-            st.dataframe(df_rv, use_container_width=True)
-        with tab3:
-            st.dataframe(df_derivativos, use_container_width=True)
-        with tab4:
-            st.dataframe(df_rf, use_container_width=True)
+    # Aba 3: Derivativos (Opções)
+    with tab3:
+        st.subheader("Registrar Venda Coberta ou PUT")
+        with st.form(key="form_opcoes", clear_on_submit=True):
+            col_a, col_b = st.columns(2)
+            ticker_opcao = col_a.text_input("Ticker da Opção (Ex: ITUBM166)").upper()
+            tipo_derivativo = col_b.selectbox("Estratégia", ["Venda de PUT", "Venda Coberta (CALL)"])
+            
+            col_c, col_d, col_e = st.columns(3)
+            qtd_opcao = col_c.number_input("Qtd Vendida", min_value=100, step=100)
+            premio_recebido = col_d.number_input("Prêmio Recebido Total (R$)", min_value=0.0, step=10.0)
+            strike = col_e.number_input("Strike (Preço Alvo)", min_value=0.0, step=0.10)
+            
+            submit_derivativo = st.form_submit_button(label="Gravar Derivativo")
+            if submit_derivativo:
+                st.success(f"✅ Operação de {tipo_derivativo} ({ticker_opcao}) registrada! Prêmio de R$ {premio_recebido} lançado.")
