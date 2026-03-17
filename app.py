@@ -12,21 +12,24 @@ def carregar_dados_sheets(gid):
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
     return pd.read_csv(url)
 
-# Tentativa de carregar o banco de dados (Substitua os GIDs depois)
+# Carregando as 4 abas (Tabelas) do Banco de Dados
 try:
-    # Coloque aqui o GID real da sua aba de Aportes_Mensais
-    df_aportes = carregar_dados_sheets("1426534025") 
+    df_aportes      = carregar_dados_sheets("0")
+    df_rv           = carregar_dados_sheets("185528981")
+    df_derivativos  = carregar_dados_sheets("1418090420")
+    df_rf           = carregar_dados_sheets("1426534025")
+    
     dados_conectados = True
 except Exception as e:
     dados_conectados = False
-
+    st.error(f"Erro ao conectar com a planilha. Detalhe: {e}")
 
 # 3. INTERFACE VISUAL (A "Lataria")
 st.title("🏛️ Family Wealth - Painel Consolidado")
 st.markdown("Bem-vindo, Bernardo e Cintia. Aqui está o resumo atualizado do ecossistema financeiro.")
 
 if dados_conectados:
-    st.success("🟢 Conectado ao banco de dados em nuvem (Google Sheets).")
+    st.success("🟢 Todas as 4 bases de dados conectadas com sucesso na nuvem!")
 else:
     st.warning("🟡 Aguardando conexão ou preenchimento da planilha inicial...")
 
@@ -35,7 +38,7 @@ visao = st.sidebar.radio("Selecione a Visão:", ["Consolidado Familiar", "Apenas
 
 st.divider()
 
-# -- Valores Fixos Iniciais (Em breve serão substituídos pelas somas do df_aportes, df_rf, etc) --
+# -- Valores Fixos Iniciais (No próximo passo, faremos o Python calcular isso usando os DataFrames acima) --
 dados_kpis = {
     "Patrimônio Total": 353045.57,
     "Imóveis": 100000.00,
@@ -87,5 +90,16 @@ st.markdown("---")
 
 # 6. Área de Debug/Visualização dos Dados da Nuvem
 if dados_conectados:
-    with st.expander("🔍 Ver Dados Brutos da Planilha (Nuvem)"):
-        st.dataframe(df_aportes, use_container_width=True)
+    with st.expander("🔍 Status da Conexão e Dados Brutos (Nuvem)"):
+        st.write("As 4 tabelas estão sendo lidas em tempo real do Google Sheets:")
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["Aportes Mensais", "Operações RV", "Derivativos", "Saldos RF"])
+        
+        with tab1:
+            st.dataframe(df_aportes, use_container_width=True)
+        with tab2:
+            st.dataframe(df_rv, use_container_width=True)
+        with tab3:
+            st.dataframe(df_derivativos, use_container_width=True)
+        with tab4:
+            st.dataframe(df_rf, use_container_width=True)
